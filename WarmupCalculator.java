@@ -11,17 +11,17 @@ public class WarmupCalculator {
         //with, the warmup period to test, the number of replications
         double lambda = Double.parseDouble(args[0]);
         double mu = Double.parseDouble(args[1]);
-        double size;
+        double initSize;
         double warmupTime;
-        double n = 100;
+        double n;
 
         //These try/catch blocks allow you to only specify lambda and mu,
         //taking default values otherwise
 
         try {
-            size = Double.parseDouble(args[2]);
+            initSize = Double.parseDouble(args[2]);
         } catch (IndexOutOfBoundsException e) {
-            size = 0.0;
+            initSize = 0.0;
         }
 
         try {
@@ -30,12 +30,18 @@ public class WarmupCalculator {
             warmupTime = 100;
         }
 
+        try {
+            n = Double.parseDouble(args[4]);
+        } catch (IndexOutOfBoundsException e) {
+            n = 100;
+        }
+
         //Initialize list to store events
         ArrayList<double[]> results = new ArrayList<double[]>();
 
         //Run warmup period n times, gather events
         for(int i = 0; i < n; i++) {
-            MM2Queue sysA = new MM2Queue(lambda, mu, (int) size);
+            MM2Queue sysA = new MM2Queue(lambda, mu, (int) initSize);
             results.addAll(sysA.runFor(warmupTime));
         }
         System.out.println("Results calculated...");
@@ -48,39 +54,32 @@ public class WarmupCalculator {
         });
         System.out.println("Results sorted...");
 
+        //Total number of items across all replications, plus a variable to keep simultaneous
+        //events across multiple replications from all being written
+        double totalSize = n*initSize;
+        double prevEvent = 0;
+
         //Initialize file, write first line
         PrintWriter writer = new PrintWriter("data_file.txt", "UTF-8");
-        writer.println("0.0 "+size);
+        writer.println("0.0 "+String.format("%.4f", totalSize/n));
 
-        //Total number of items across all replications
-        size = n*size;
+        //For each event, either increase or decrease the total number of items
+        //across replications depending on arrival or departure, then write
+        //average number of items to file; the if statement keeps events that may
+        //happen to occur at the same time in multiple replications from all being
+        //written to the file and only writes the net result, keeping the file
+        //size down
         for(double[] arr : results) {
-            //For each event, either increase or decrease the total number of items
-            //across replications depending on arrival or departure, then write
-            //average number of items to file
-            size += arr[1];
-            writer.println(arr[0]+" "+String.format("%.4f", size/n));
+            if(prevEvent != arr[0])
+                writer.println(prevEvent+" "+String.format("%.4f", totalSize/n));
+            totalSize += arr[1];
+            prevEvent = arr[0];
         }
-        //Close file
+        writer.println(prevEvent+" "+String.format("%.4f", totalSize/n));
+
+        //Close file to prevent memory leaks
         writer.close();
         System.out.println("File written!");
-    }
-
-    public static ArrayList<Double> avgValues(ArrayList<ArrayList<Double>> toAvg) {
-        ArrayList<Double> toRet = new ArrayList<Double>();
-        int n = toAvg.size();
-
-        for(int i = 0; i < toAvg.get(0).size(); i++) {
-            double sum = 0;
-
-            for(ArrayList<Double> list : toAvg) {
-                sum += list.get(i);
-            }
-
-            toRet.add(sum/n);
-        }
-
-        return toRet;
     }
 
 }

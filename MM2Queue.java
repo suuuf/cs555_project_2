@@ -71,7 +71,7 @@ public class MM2Queue {
         double prevEvent = 0.0;
         meanCusNum = 0.0;
 
-        //Simulate an M/M/2/5 queue as long as at least one event will still happen in the time interval
+        //Simulate an M/M/2/2+5 queue as long as at least one event will still happen in the time interval
         while (!(nextArrival > timeLen && nextDeparture1 > timeLen && nextDeparture2 > timeLen)) {
             
             //If the next arrival time happens after a departure time,
@@ -124,7 +124,7 @@ public class MM2Queue {
 
             //If next arrival time happens before either departure time, next event is arrival
             else {
-                //If queue size is 7, buffer is full and bother servers are busy;
+                //If queue size is 7, buffer is full and both servers are busy;
                 //mark blocked customer and call next arrival time
                 if (queue.size() >= 7) {
                     custBlocked += 1;
@@ -148,7 +148,7 @@ public class MM2Queue {
                     queue.add(nextArrival);
                     toRet.add(new double[]{nextArrival, 1});
 
-                    //Claculate next arrival, increment customers received
+                    //Calculate next arrival, increment customers received
                     nextArrival += exp(lambda);
                     custReceived += 1;
                 }
@@ -156,10 +156,12 @@ public class MM2Queue {
         }
 
         //Calculate average customer number in queue, blocking probability, and average amount of time
-        //customer spent in system
+        //customer spent in system; we subtract the size of the queue from total customers received
+        //because those customers are still in the system, so we don't count them when calculating
+        //customer wait time
         meanCusNum = meanCusNum / timeLen;
         blockProb = custBlocked / (custBlocked + custReceived);
-        meanCusTime = totalWait / (custBlocked + custReceived);
+        meanCusTime = totalWait / (custReceived - queue.size());
 
         //Get arrival/departure times ready for next interval
         nextArrival = nextArrival - timeLen;
@@ -175,9 +177,12 @@ public class MM2Queue {
         return toRet;
     }
 
-    public int getQueueSize() {
-        return queue.size();
+    //Calculate new exponential variable
+    private double exp(double lambdaOrMu) {
+        return -Math.log(r.nextDouble()) / lambdaOrMu;
     }
+
+    //Get state variables from last run
 
     public double getBlockProb() {
         return blockProb;
@@ -190,9 +195,4 @@ public class MM2Queue {
     public double getMeanCusNum() {
         return meanCusNum;
     }
-
-    private double exp(double lambda) {
-        return -Math.log(r.nextDouble()) / lambda;
-    }
-
 }
